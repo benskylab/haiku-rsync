@@ -35,13 +35,13 @@ Ships the `rsync` binary, the `rsync-ssl` helper script, and man pages
 
 ## 2. Target environment
 
-- **OS:** Haiku R1~beta6, hrev59866, x86_64 (lab VM at `192.0.0.136`)
+- **OS:** Haiku R1~beta6, hrev59866, x86_64
 - **Toolchain (native on Haiku):** gcc 13.3.0, make, autoconf/automake, `jam`, `package`
 - **Source:** rsync 3.5.1 (latest upstream release at time of build)
 
 Because Haiku ships a complete native toolchain (compiler + autotools + the
 `package` tool), the whole build and package happens **on the Haiku machine
-itself** — no cross-compilation required.
+itself** - no cross-compilation required.
 
 ---
 
@@ -109,7 +109,7 @@ in the standard HaikuPorts repository:
 `lib:libcrypto>=3`, `lib:liblz4>=1`, `lib:libxxhash`, `lib:libzstd>=1`, `lib:libz>=1`,
 and `haiku>=r1~beta5` (covers `libroot`, `libnetwork`, `libbsd`, `libgnu`).
 
-> **Note on openssl:** the box has `openssl3` (3.5.9). `openssl_devel` (1.1.1w)
+> **Note on openssl:** Haiku ships `openssl3` (3.5.9). `openssl_devel` (1.1.1w)
 > conflicts with `openssl3_devel`, so the build uses the installed openssl3.
 
 ---
@@ -153,7 +153,7 @@ make install DESTDIR=/tmp/rsync-destroot
 | `--with-included-zlib=no` | Use system zlib instead of the bundled copy |
 | `--disable-iconv`, `--disable-iconv-open` | Matches HaikuPorts; avoids iconv charset issues |
 | `--disable-locale` | Matches HaikuPorts |
-| `--disable-idn` | `idn2.h` not present on the box (no effect on file transfer) |
+| `--disable-idn` | `idn2.h` not present on Haiku (no effect on file transfer) |
 
 A quirk worth knowing: after `autoconf`, `make` may trip over stale
 `config.h.in` / `configure.sh` timestamps. Fix by `touch`ing those files (or
@@ -189,12 +189,12 @@ requires {
 
 Files are staged with paths **relative to `/boot/system`** (`bin/rsync`,
 `documentation/man/man1/...`), which is the Haiku package convention.
-Note the man pages live under `documentation/man` — Haiku's `man` (mandoc)
+Note the man pages live under `documentation/man` - Haiku's `man` (mandoc)
 reads **only** that tree, never `share/man`. The recipe gets this for free:
 `runConfigure` passes `--mandir=$manDir` by default. The hand-build flow
 configures with upstream defaults instead, so `build_haiku_rsync.sh`
 re-roots `share/man` → `documentation/man` while staging (the original
-hand-built package shipped `share/man`, making `man rsync` fail — fixed
+hand-built package shipped `share/man`, making `man rsync` fail - fixed
 2026-10-14).
 
 ### Packaging gotchas learned
@@ -207,14 +207,14 @@ hand-built package shipped `share/man`, making `man rsync` fail — fixed
 
 ## 7. Verification
 
-All tests ran on the lab machine against a Linux reference daemon (rsync
+All tests ran against a Linux reference daemon (rsync
 3.2.7) to prove real-world client behavior.
 
 ### Local operations
 - Basic `-a` copy, recursive diff → identical ✔
 - Man pages render: `man rsync`, `man rsyncd.conf` from
   `/boot/system/documentation/man` ✔ (mandoc prints a benign "outdated
-  mandoc.db" note until the system index is refreshed — same as `man dig`)
+  mandoc.db" note until the system index is refreshed)
 - zstd compression + xxh128 checksum → identical ✔
 - Symlink and permission preservation ✔
 - xattr round-trip (via the new Haiku xattr backend) ✔
@@ -234,7 +234,7 @@ All tests ran on the lab machine against a Linux reference daemon (rsync
 - Re-ran the network delta test using the **installed** binary → correct. ✔
 
 > One red herring during testing: `@ERROR: setgroups failed` came from a
-> misconfigured throwaway Linux daemon, **not** the Haiku client — it reproduced
+> misconfigured throwaway Linux daemon, **not** the Haiku client - it reproduced
 > identically with the Linux rsync client. Resolved by simplifying the daemon
 > config.
 
@@ -266,7 +266,7 @@ haiku-rsync/
    machine.
 2. Install build deps:
    `pkgman install zlib_devel zstd_devel xxhash_devel lz4_devel`
-   (openssl3_devel is already present on the reference box).
+   (openssl3_devel is already present on a default Haiku install).
 3. Run `build_haiku_rsync.sh` (it extracts, patches, configures, builds,
    stages, and creates the `.hpkg` in `/boot/home/out/`).
 4. Retrieve `/boot/home/out/rsync-3.5.1-1-x86_64.hpkg`.
@@ -278,7 +278,7 @@ haiku-rsync/
 - **x86_64 only**, as requested. No x86_gcc2 / secondary-arch build.
 - **Client-focused.** The daemon mode works (it's compiled in) but the primary
   goal and testing was the client side.
-- **iconv/locale/IDN disabled** — this does not affect normal file transfer; it
+- **iconv/locale/IDN disabled** - this does not affect normal file transfer; it
   only skips optional charset-name conversion and localized messages.
 - Delivered two ways: a ready-to-install `.hpkg` **and** an official-format
   HaikuPorts recipe (section 11).
@@ -299,28 +299,28 @@ haikuports/
 ```
 
 ### Recipe contents
-- **SOURCE_URI / CHECKSUM_SHA256** — upstream `download.samba.org`, checksum
+- **SOURCE_URI / CHECKSUM_SHA256** - upstream `download.samba.org`, checksum
   `c55f9c9d...` (verified).
-- **PATCHES** — the same Haiku platform patch as section 3, in git-`patchset`
+- **PATCHES** - the same Haiku platform patch as section 3, in git-`patchset`
   format (`patches/rsync-3.5.1.patchset`), verified to apply cleanly with
   `patch -p1` to pristine source.
-- **BUILD()** — `aclocal && autoconf`, then `runConfigure` with the flags from
+- **BUILD()** - `aclocal && autoconf`, then `runConfigure` with the flags from
   section 5, then `make reconfigure` + `make` (the `reconfigure` step is the
   correct fix for the `autoconf` timestamp issue noted in section 5).
-- **INSTALL()** — `make install`.
-- **TEST()** — runs `runtests.py` with an `--exclude` list of 16 tests that
+- **INSTALL()** - `make install`.
+- **TEST()** - runs `runtests.py` with an `--exclude` list of 16 tests that
   cannot pass on Haiku (all environmental, detailed below), after building the
   required helper programs.
-- **`defineDebugInfoPackage`** — splits a `rsync_debuginfo` package, matching
+- **`defineDebugInfoPackage`** - splits a `rsync_debuginfo` package, matching
   HaikuPorts convention.
-- **PROVIDES/REQUIRES/BUILD_REQUIRES** — correct `lib:` provides resolved
+- **PROVIDES/REQUIRES/BUILD_REQUIRES** - correct `lib:` provides resolved
   against the real packages (see section 4).
 
 ### Validation performed
 | Check | Result |
 |-------|--------|
-| `haikuporter --lint rsync` | clean — no policy errors |
-| `haikuporter -y rsync` (full chroot build) | **exit 0** — produced `rsync-3.5.1-1-x86_64.hpkg` + `rsync_debuginfo-3.5.1-1-x86_64.hpkg` with correct metadata |
+| `haikuporter --lint rsync` | clean - no policy errors |
+| `haikuporter -y rsync` (full chroot build) | **exit 0** - produced `rsync-3.5.1-1-x86_64.hpkg` + `rsync_debuginfo-3.5.1-1-x86_64.hpkg` with correct metadata |
 | `haikuporter -y --test rsync` (TEST phase) | see test notes below |
 
 The full build exercised the recipe's `runConfigure`, `make reconfigure`, and
@@ -338,7 +338,7 @@ lacks a few features. Excluded in `TEST()`:
 | **umask/permission model** differs in the daemon path | `chmod-option` |
 | **No device nodes** (`MAKEDEV` stubbed out) | `devices` |
 
-With these excluded, the rest of the suite passes cleanly — re-verified
+With these excluded, the rest of the suite passes cleanly - re-verified
 2026-10-14 via `haikuporter -y --test rsync`: **224 passed / 0 failed /
 120 skipped, exit 0**. That run also fixed a TEST() gap: the three 3.5.x
 security regression tests `rename-mixed-parent-escape-poc`,
@@ -346,12 +346,3 @@ security regression tests `rename-mixed-parent-escape-poc`,
 need the `t_rename_secure` / `t_symlink_secure` helper programs, which
 TEST() now builds (without them they abort with `FileNotFoundError`); all
 three now pass on Haiku.
-
-### Notes for upstreaming
-- The recipe declares `ARCHITECTURES="all !x86_gcc2"` + `SECONDARY_ARCHITECTURES="x86"`
-  (matching the existing rsync recipe); the platform patches are
-  architecture-independent, but only **x86_64** was built and tested here.
-- `cmd:python3` is a `BUILD_PREREQUIRES` (testsuite only) — the runtime package
-  has **no** Python dependency.
-- Before official submission you'd set a real `packager` identity and run
-  `haikuporter -S` (strict policy) to confirm zero warnings.
