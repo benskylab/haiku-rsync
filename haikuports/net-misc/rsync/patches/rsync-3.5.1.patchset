@@ -1,0 +1,59 @@
+From 5e0d1e6ab7a7b9c7e2d0f9a4b3c8d1e2f5a6b7c8 Mon Sep 17 00:00:00 2001
+From: Native rsync for Haiku build <haiku@localhost>
+Date: Mon, 13 Oct 2026 16:34:26 +0000
+Subject: [PATCH] Haiku platform support
+
+Adapted from Jerome Duval's Haiku patch for rsync 3.2.7 (haikuports),
+retargeted to the 3.5.1 sources:
+
+- Link socket/getpass/getxattr from their Haiku homes (libnetwork,
+  libbsd, libgnu); none of these live in libroot.
+- Add a *haiku* case to the xattr backend selection so rsync uses the
+  Linux xattr API, with NO_DEVICE_XATTRS since Haiku device files do
+  not carry xattrs.
+- Stub out MAKEDEV/major/minor, which Haiku does not provide.
+
+diff --git a/configure.ac b/configure.ac
+index 14ae117..8dcc4c2 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -786,6 +786,9 @@ if test x"$ac_cv_func_connect" = x"no"; then
+ fi
+ 
+ AC_SEARCH_LIBS(inet_ntop, resolv)
++AC_SEARCH_LIBS(socket, network)
++AC_SEARCH_LIBS(getpass, bsd)
++AC_SEARCH_LIBS(getxattr, gnu)
+ 
+ # For OS X, Solaris, HP-UX, etc.: figure out if -liconv is needed.  We'll
+ # accept either iconv_open or libiconv_open, since some include files map
+@@ -1466,6 +1469,12 @@ if test x"$enable_xattr_support" = x"no"; then
+ 	AC_DEFINE(NO_SYMLINK_USER_XATTRS, 1, [True if symlinks do not support user xattrs])
+ 	AC_SEARCH_LIBS(getxattr,attr)
+ 	;;
++    *haiku*)
++	AC_MSG_RESULT(Using Linux xattrs)
++	AC_DEFINE(HAVE_LINUX_XATTRS, 1, [True if you have Linux xattrs (or equivalent)])
++	AC_DEFINE(SUPPORT_XATTRS, 1)
++	AC_DEFINE(NO_DEVICE_XATTRS, 1, [True if device files do not support xattrs])
++	;;
+     darwin*)
+ 	AC_MSG_RESULT(Using OS X xattrs)
+ 	AC_DEFINE(HAVE_OSX_XATTRS, 1, [True if you have Mac OS X xattrs])
+diff --git a/rsync.h b/rsync.h
+index 8282d62..d3709fe 100644
+--- a/rsync.h
++++ b/rsync.h
+@@ -528,7 +528,9 @@ enum delret {
+ #define MAKEDEV(devmajor,devminor) makedev(0,devmajor,devminor)
+ #else
+ #ifndef __TANDEM
+-#define MAKEDEV(devmajor,devminor) makedev(devmajor,devminor)
++#define MAKEDEV(devmajor,devminor) ((dev_t)0)
++#define major(dev) (0)
++#define minor(dev) (0)
+ #else
+ # define major DEV_TO_MAJOR
+ # define minor DEV_TO_MINOR
+-- 
+2.37.3

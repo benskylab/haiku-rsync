@@ -1,0 +1,45 @@
+From: Haiku rsync packaging
+Subject: Haiku platform support for rsync 3.5.1
+
+Adapted from Jerome Duval's Haiku patch (haikuports rsync-3.2.7.patchset),
+adjusted for the 3.5.1 sources.
+
+diff --git a/configure.ac b/configure.ac
+--- a/configure.ac
++++ b/configure.ac
+@@ -786,6 +786,9 @@
+ fi
+ 
+ AC_SEARCH_LIBS(inet_ntop, resolv)
++AC_SEARCH_LIBS(socket, network)
++AC_SEARCH_LIBS(getpass, bsd)
++AC_SEARCH_LIBS(getxattr, gnu)
+ 
+ # For OS X, Solaris, HP-UX, etc.: figure out if -liconv is needed.  We'll
+ # accept either iconv_open or libiconv_open, since some include files map
+@@ -1466,6 +1469,12 @@
+ 	AC_SEARCH_LIBS(getxattr,attr)
+ 	;;
++    *haiku*)
++	AC_MSG_RESULT(Using Linux xattrs)
++	AC_DEFINE(HAVE_LINUX_XATTRS, 1, [True if you have Linux xattrs (or equivalent)])
++	AC_DEFINE(SUPPORT_XATTRS, 1)
++	AC_DEFINE(NO_DEVICE_XATTRS, 1, [True if device files do not support xattrs])
++	;;
+     darwin*)
+ 	AC_MSG_RESULT(Using OS X xattrs)
+ 	AC_DEFINE(HAVE_OSX_XATTRS, 1, [True if you have Mac OS X xattrs])
+diff --git a/rsync.h b/rsync.h
+--- a/rsync.h
++++ b/rsync.h
+@@ -528,7 +528,9 @@
+ #define MAKEDEV(devmajor,devminor) makedev(0,devmajor,devminor)
+ #else
+ #ifndef __TANDEM
+-#define MAKEDEV(devmajor,devminor) makedev(devmajor,devminor)
++#define MAKEDEV(devmajor,devminor) ((dev_t)0)
++#define major(dev) (0)
++#define minor(dev) (0)
+ #else
+ # define major DEV_TO_MAJOR
+ # define minor DEV_TO_MINOR

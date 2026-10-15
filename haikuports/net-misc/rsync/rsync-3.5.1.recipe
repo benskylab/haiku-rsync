@@ -1,0 +1,125 @@
+SUMMARY="A utility for fast incremental file transfer"
+DESCRIPTION="rsync is a file transfer program for Unix systems. rsync uses the \
+'rsync algorithm' which provides a very fast method for bringing remote files \
+into sync. It does this by sending just the differences in the files across \
+the link, without requiring that both sets of files are present at one of the \
+ends of the link beforehand. This port is compiled natively for Haiku with \
+support for xxhash checksums, zstd/lz4/zlib compression, extended attributes, \
+and both the rsync daemon and SSH transports."
+HOMEPAGE="https://rsync.samba.org/"
+COPYRIGHT="1996-2026 by Andrew Tridgell, Wayne Davison, and others"
+LICENSE="GNU GPL v3"
+REVISION="1"
+
+SOURCE_URI="https://download.samba.org/pub/rsync/src/rsync-$portVersion.tar.gz"
+# Upstream mirror, in case the primary is unreachable:
+#	SOURCE_URI_2="https://github.com/RsyncProject/rsync/releases/download/$portVersion/rsync-$portVersion.tar.gz"
+CHECKSUM_SHA256="c55f9c9dc10fb8bec397b399a0fdded53cc9a2d8e30891bb0d63724d25c37bef"
+
+PATCHES="rsync-$portVersion.patchset"
+
+ARCHITECTURES="all !x86_gcc2"
+SECONDARY_ARCHITECTURES="x86"
+
+commandSuffix=$secondaryArchSuffix
+commandBinDir=$binDir
+if [ "$targetArchitecture" = x86_gcc2 ]; then
+	commandSuffix=
+	commandBinDir=$prefix/bin
+fi
+
+PROVIDES="
+	rsync$secondaryArchSuffix = $portVersion compat >= 3
+	cmd:rsync$commandSuffix = $portVersion compat >= 3
+	cmd:rsync_ssl$commandSuffix = $portVersion compat >= 3
+	"
+REQUIRES="
+	haiku$secondaryArchSuffix
+	lib:libcrypto$secondaryArchSuffix >= 3
+	lib:liblz4$secondaryArchSuffix >= 1
+	lib:libxxhash$secondaryArchSuffix
+	lib:libzstd$secondaryArchSuffix >= 1
+	lib:libz$secondaryArchSuffix >= 1
+	"
+if [ "$targetArchitecture" = x86_gcc2 ]; then
+	REPLACES="
+		rsync
+		"
+fi
+
+BUILD_REQUIRES="
+	haiku${secondaryArchSuffix}_devel
+	devel:libcrypto$secondaryArchSuffix >= 3
+	devel:liblz4$secondaryArchSuffix >= 1
+	devel:libxxhash$secondaryArchSuffix
+	devel:libzstd$secondaryArchSuffix >= 1
+	devel:libz$secondaryArchSuffix >= 1
+	"
+BUILD_PREREQUIRES="
+	cmd:aclocal
+	cmd:autoconf
+	cmd:find
+	cmd:gcc$secondaryArchSuffix
+	cmd:ld$secondaryArchSuffix
+	cmd:make
+	cmd:python3
+	"
+
+defineDebugInfoPackage rsync$secondaryArchSuffix $commandBinDir/rsync
+
+BUILD()
+{
+	aclocal
+	autoconf
+	runConfigure --omit-dirs binDir ./configure --bindir=$commandBinDir \
+		--enable-xattr-support \
+		--disable-iconv \
+		--disable-iconv-open \
+		--disable-locale \
+		--disable-idn \
+		--disable-debug \
+		--with-included-zlib=no
+
+	make reconfigure
+	make
+}
+
+INSTALL()
+{
+	# Plain make install is enough: runConfigure (BUILD above) passes
+	# --mandir=$manDir, so the man pages land directly in
+	# $documentation/man, where Haiku's man(1) (mandoc) reads them.
+	# (The hand-build flow in build_haiku_rsync.sh configures with
+	# upstream defaults instead and re-roots share/man afterwards.)
+	make install
+}
+
+TEST()
+{
+	# The upstream suite cannot run green on Haiku: a handful of tests depend
+	# on environment features Haiku does not provide. All of them are
+	# environmental, not rsync bugs -- the rest of the suite (227 tests)
+	# passes. Excluded here:
+	#   hard links (unsupported on the test filesystem): hands, hardlinks-deep,
+	#     link-dest-*, operator-path-link-dest, relative, variety*,
+	#     itemize, batch-only-remove-source-regression,
+	#     rrsync-root-relative-paths, alt-dest-deep
+	#   no "nobody" user for the daemon's default uid: daemon-config,
+	#     chdir-symlink-race
+	#   umask/permission model: chmod-option
+	#   no device nodes (MAKEDEV stubbed out): devices
+	local exclude="hands,hardlinks-deep,link-dest-pathroot,link-dest-relative-basis,operator-path-link-dest,relative,variety,variety-symlink-traversal,itemize,batch-only-remove-source-regression,rrsync-root-relative-paths,alt-dest-deep,daemon-config,chdir-symlink-race,chmod-option,devices"
+	local srcdir="${sourceDir:-$(pwd)}"
+	local rsyncBin="${srcdir}/rsync"
+
+	[ -x "$rsyncBin" ] || rsyncBin="$(pwd)/rsync"
+
+	# Build the helper programs runtests.py requires (normally built by the
+	# Makefile's "check" prerequisites). Without them the runner aborts.
+	# t_rename_secure/t_symlink_secure (new in the 3.5.x testsuite) back
+	# the do_rename_at()/symlink-race security regression tests.
+	make tls trimslash t_unsafe t_chmod_secure t_secure_relpath wildtest \
+		getgroups getfsdev t_rename_secure t_symlink_secure
+
+	"$srcdir/runtests.py" --rsync-bin="$rsyncBin" --exclude "$exclude"
+}

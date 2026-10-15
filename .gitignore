@@ -1,0 +1,13 @@
+# Agent working notes — local only, not published
+AGENTS.md
+
+# Private lab SSH key (VM login) — NEVER publish
+haiku-vm
+
+# Upstream source tarball — re-downloadable, keep only the patchset
+src/*.tar.*
+
+# Editor / OS noise
+*.swp
+*~
+.DS_Store
